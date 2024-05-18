@@ -83,7 +83,6 @@ def evaluate():
             # Step 1. 读取文档
             model_file_path = f"{baseline}{dataset_postfix[i]}"
             gt_file_path = f"{gt_datasets[i]}"
-            # print(model_file_path, gt_file_path)
             pred_items = []
             gt_items = []
             with jsonlines.open(model_file_path, "r") as pred_reader:
@@ -101,11 +100,14 @@ def evaluate():
                 text = pred_item['text']
                 assert text == gt_item['text']
                 # 先处理gt
+                filtered_entity = []
                 for mention in gt_item['labels']:
-                    if mention["entity_id"] == "Unknown":
-                        continue
                     start, end = mention['span']
-                    surface_form = text[start:end]
+                    surface_form = text[start:end].strip()
+                    if mention["entity_id"] == "Unknown":
+                        # 存起来，然后在predict的时候过滤掉这个实体(按次数)
+                        filtered_entity.append(surface_form)
+                        continue
                     qid = mention['entity_id']
                     gt_result.append(
                         (doc_id, surface_form, qid)
@@ -115,10 +117,13 @@ def evaluate():
                     continue
                 for mention in pred_item['entity_mentions']:
                     start, end = mention['span']
-                    surface_form = text[start:end]
+                    surface_form = text[start:end].strip()
+                    if surface_form in filtered_entity:
+                        filtered_entity.remove(surface_form)
+                        continue
                     if 'id' not in mention:
                         continue
-                        qid = None
+                        # qid = None
                     else:
                         qid = mention['id']
                     pred_result.append(
